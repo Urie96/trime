@@ -144,6 +144,9 @@ class Keyboard(
     val isLock = selfConfig?.lock ?: false // 切換程序時記憶鍵盤
     val asciiKeyboard: String? = selfConfig?.asciiKeyboard // 英文鍵盤
 
+    /** 是否隐藏键盘上方的输入栏（候选栏/工具栏），用于代码键盘等场景 */
+    val hideInputBar: Boolean = selfConfig?.hideInputBar ?: false
+
     val keyboardHeight: Int =
         intArrayOf(
             selfConfig?.let { getKeyboardHeightFromKeyboardConfig(it) } ?: 0,

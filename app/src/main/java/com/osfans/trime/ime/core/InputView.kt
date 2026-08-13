@@ -87,7 +87,7 @@ class InputView(
             setOnClickListener(placeholderListener)
         }
 
-    private val updateWindowViewHeightJob: Job
+    private val updateWindowViewJobs: List<Job>
 
     private val inputDepMgr = InputDependencyManager.initialize(this, themedContext, theme, service, rime)
     private val di = inputDepMgr.di
@@ -101,6 +101,7 @@ class InputView(
     private val liquidWindow: LiquidWindow by di.instance()
 
     private val candidatesMode by AppPrefs.defaultInstance().candidates.mode
+    private val hideInputBarPref by AppPrefs.defaultInstance().keyboard.hideInputBar
 
     private val keyboardSidePadding = theme.generalStyle.keyboardPadding
     private val keyboardSidePaddingLandscape = theme.generalStyle.keyboardPaddingLand
@@ -196,14 +197,21 @@ class InputView(
                 )
             }
 
-        updateWindowViewHeightJob =
-            service.lifecycleScope.launch {
-                keyboardWindow.currentKeyboardHeight.collect {
-                    windowManager.view.updateLayoutParams {
-                        height = it
+        updateWindowViewJobs =
+            listOf(
+                service.lifecycleScope.launch {
+                    keyboardWindow.currentKeyboardHeight.collect {
+                        windowManager.view.updateLayoutParams {
+                            height = it
+                        }
                     }
-                }
-            }
+                },
+                service.lifecycleScope.launch {
+                    keyboardWindow.currentKeyboardHideInputBar.collect { hideInputBar ->
+                        inputBar.view.visibility = if (hideInputBarPref || hideInputBar) View.GONE else View.VISIBLE
+                    }
+                },
+            )
 
         updateKeyboardSize()
 
@@ -344,7 +352,7 @@ class InputView(
         ViewCompat.setOnApplyWindowInsetsListener(this, null)
         // cancel the notification job and clear all broadcast receivers,
         // implies that InputView should not be attached again after detached.
-        updateWindowViewHeightJob.cancel()
+        updateWindowViewJobs.forEach { it.cancel() }
         popup.root.removeAllViews()
         inputDepMgr.stop()
         super.onDetachedFromWindow()

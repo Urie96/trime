@@ -26,7 +26,10 @@ import com.osfans.trime.ime.window.BoardWindow
 import com.osfans.trime.ime.window.ResidentWindow
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.instance
 import splitties.views.dsl.core.add
@@ -63,6 +66,9 @@ class KeyboardWindow :
         )
 
     val currentKeyboardHeight = _currentKeyboardHeight.asSharedFlow()
+
+    private val _currentKeyboardHideInputBar = MutableStateFlow(false)
+    val currentKeyboardHideInputBar: StateFlow<Boolean> = _currentKeyboardHideInputBar.asStateFlow()
 
     private lateinit var keyboardView: FrameLayout
 
@@ -119,6 +125,7 @@ class KeyboardWindow :
 
         keyboard.also {
             runBlocking { _currentKeyboardHeight.emit(it.keyboardHeight) }
+            _currentKeyboardHideInputBar.value = it.hideInputBar
             if (it.isLock) lastLockKeyboardId = target
             dispatchCapsState(it::setShifted)
 
