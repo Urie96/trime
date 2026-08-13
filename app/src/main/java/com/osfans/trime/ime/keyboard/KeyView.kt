@@ -134,9 +134,11 @@ class KeyView(
             showPopupPreview(direction)
         }
 
-        onSlide = { delta, _, _ ->
+        onSlide = { delta, vertical, _, _ ->
             if (isSlideCursor) {
                 when {
+                    vertical && delta > 0 -> keyboardActionListener?.onAction(KeyAction("Down"))
+                    vertical && delta < 0 -> keyboardActionListener?.onAction(KeyAction("Up"))
                     delta > 0 -> keyboardActionListener?.onAction(KeyAction("Right"))
                     delta < 0 -> keyboardActionListener?.onAction(KeyAction("Left"))
                 }

@@ -25,10 +25,12 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
     private var startX = 0f
     private var startY = 0f
     private var lastX = 0f
+    private var lastY = 0f
     private var startTime = 0L
 
     private var isLongPressed = false
     private var slideActivated = false
+    private var slideVertical = false
     private var swipeTriggered = false
 
     private var longPressJob: Job? = null
@@ -52,7 +54,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
     var onSwipeUp: (() -> Unit)? = null
     var onSwipeDown: (() -> Unit)? = null
 
-    var onSlide: ((delta: Int, x: Float, y: Float) -> Unit)? = null
+    var onSlide: ((delta: Int, vertical: Boolean, x: Float, y: Float) -> Unit)? = null
 
     var onPress: (() -> Unit)? = null
     var onRelease: ((behavior: KeyBehavior, longPress: Boolean) -> Unit)? = null
@@ -90,10 +92,12 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
                 startX = x
                 startY = y
                 lastX = startX
+                lastY = startY
                 startTime = SystemClock.elapsedRealtime()
 
                 isLongPressed = false
                 slideActivated = false
+                slideVertical = false
                 swipeTriggered = false
                 lastSwipeBehavior = KeyBehavior.CLICK
 
@@ -120,17 +124,34 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
 
                 if ((isSlideCursor || isSlideDelete) && onSlide != null && !isLongPressed && swipeTravel > 0) {
                     if (!slideActivated) {
-                        if (abs(dx) >= swipeTravel) {
+                        // 删除滑动仅支持水平方向；光标滑动水平/垂直均可
+                        val canSlide =
+                            if (isSlideDelete) {
+                                abs(dx) >= swipeTravel
+                            } else {
+                                abs(dx) >= swipeTravel || abs(dy) >= swipeTravel
+                            }
+                        if (canSlide) {
                             slideActivated = true
+                            slideVertical = isSlideCursor && abs(dy) > abs(dx)
                             lastX = startX
+                            lastY = startY
                         }
                     }
 
                     if (slideActivated) {
-                        val step = getNStep(lastX, x, slideStepSize.toFloat())
-                        if (step != 0) {
-                            onSlide?.invoke(step, x, y)
-                            lastX = x
+                        if (slideVertical) {
+                            val step = getNStep(lastY, y, slideStepSize.toFloat())
+                            if (step != 0) {
+                                onSlide?.invoke(step, true, x, y)
+                                lastY = y
+                            }
+                        } else {
+                            val step = getNStep(lastX, x, slideStepSize.toFloat())
+                            if (step != 0) {
+                                onSlide?.invoke(step, false, x, y)
+                                lastX = x
+                            }
                         }
                     }
                 }
@@ -157,7 +178,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
                 cancelJobs()
 
                 if (slideActivated) {
-                    onSlide?.invoke(0, x, y)
+                    onSlide?.invoke(0, slideVertical, x, y)
                     onCancel?.invoke()
                     return true
                 }
@@ -210,6 +231,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
 
                 isLongPressed = false
                 slideActivated = false
+                slideVertical = false
                 swipeTriggered = false
 
                 onCancel?.invoke()
