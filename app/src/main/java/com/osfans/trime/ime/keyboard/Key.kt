@@ -50,6 +50,12 @@ class Key(
 
     private val label = selfConfig?.label ?: ""
     private val labelSymbol = selfConfig?.labelSymbol ?: ""
+    val labelLeft: String
+        get() = selfConfig?.labelLeft?.takeIf { it.isNotEmpty() } ?: swipeLeft?.getLabel(parent) ?: ""
+    val labelRight: String
+        get() = selfConfig?.labelRight?.takeIf { it.isNotEmpty() } ?: swipeRight?.getLabel(parent) ?: ""
+    val labelDown: String
+        get() = selfConfig?.labelDown?.takeIf { it.isNotEmpty() } ?: swipeDown?.getLabel(parent) ?: ""
     val hint: String = selfConfig?.hint ?: ""
     val popup = selfConfig?.popup ?: emptyList()
 
@@ -211,6 +217,14 @@ class Key(
         get() = keyActions[KeyBehavior.CLICK]
     val longClick: KeyAction?
         get() = keyActions[KeyBehavior.LONG_CLICK]
+    val swipeUp: KeyAction?
+        get() = keyActions[KeyBehavior.SWIPE_UP]
+    val swipeDown: KeyAction?
+        get() = keyActions[KeyBehavior.SWIPE_DOWN]
+    val swipeLeft: KeyAction?
+        get() = keyActions[KeyBehavior.SWIPE_LEFT]
+    val swipeRight: KeyAction?
+        get() = keyActions[KeyBehavior.SWIPE_RIGHT]
 
     fun hasAction(behavior: KeyBehavior): Boolean = keyActions[behavior] != null
 
@@ -248,8 +262,11 @@ class Key(
         else -> getAction(behavior)!!.getPreview(parent)
     }
 
+    /**
+     * 鍵面上方顯示的標籤：優先使用 [labelSymbol]，否則取 swipe_up 動作的標籤（沒有則回退 long_click）
+     */
     val symbolLabel: String
-        get() = labelSymbol.ifEmpty { longClick?.getLabel(parent) ?: "" }
+        get() = labelSymbol.ifEmpty { swipeUp?.getLabel(parent) ?: longClick?.getLabel(parent) ?: "" }
 
     private val appearanceType: Int
         get() {

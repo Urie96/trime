@@ -292,9 +292,24 @@ class KeyView(
             drawSymbol(canvas, symbol)
         }
 
-        val hint = key.hint
-        if (hint.isNotEmpty()) {
-            drawSymbol(canvas, hint, isTop = false)
+        val labelLeft = key.labelLeft
+        if (labelLeft.isNotEmpty()) {
+            drawSymbol(canvas, labelLeft, SymbolPosition.LEFT)
+        }
+
+        val labelRight = key.labelRight
+        if (labelRight.isNotEmpty()) {
+            drawSymbol(canvas, labelRight, SymbolPosition.RIGHT)
+        }
+
+        val labelDown = key.labelDown
+        if (labelDown.isNotEmpty()) {
+            drawSymbol(canvas, labelDown, SymbolPosition.BOTTOM)
+        } else {
+            val hint = key.hint
+            if (hint.isNotEmpty()) {
+                drawSymbol(canvas, hint, SymbolPosition.BOTTOM, isHint = true)
+            }
         }
     }
 
@@ -338,6 +353,8 @@ class KeyView(
         }
     }
 
+    private enum class SymbolPosition { TOP, CENTER, LEFT, RIGHT, BOTTOM }
+
     private fun drawIcon(
         canvas: Canvas,
         iconName: String,
@@ -345,7 +362,7 @@ class KeyView(
         color: Int,
         offsetX: Float = 0f,
         offsetY: Float = 0f,
-        isTop: Boolean? = null,
+        position: SymbolPosition = SymbolPosition.CENTER,
     ) {
         val halfSize = size / 2
 
@@ -363,12 +380,16 @@ class KeyView(
 
         icon.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
 
-        val centerX = (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+        val centerX = when (position) {
+            SymbolPosition.LEFT -> paddingLeft + halfSize + sp(offsetX)
+            SymbolPosition.RIGHT -> width - paddingRight - halfSize + sp(offsetX)
+            else -> (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+        }
 
-        val centerY = when (isTop) {
-            true -> paddingTop + halfSize + sp(offsetY)
-            false -> height - paddingBottom - size + sp(offsetY)
-            null -> (height - paddingTop - paddingBottom) / 2f + paddingTop + sp(offsetY)
+        val centerY = when (position) {
+            SymbolPosition.TOP -> paddingTop + halfSize + sp(offsetY)
+            SymbolPosition.BOTTOM -> height - paddingBottom - size + sp(offsetY)
+            else -> (height - paddingTop - paddingBottom) / 2f + paddingTop + sp(offsetY)
         }
 
         icon.setBounds(
@@ -380,25 +401,35 @@ class KeyView(
         icon.draw(canvas)
     }
 
-    private fun drawSymbol(canvas: Canvas, text: String, isTop: Boolean = true) {
+    private fun drawSymbol(
+        canvas: Canvas,
+        text: String,
+        position: SymbolPosition = SymbolPosition.TOP,
+        isHint: Boolean = false,
+    ) {
         val showSymbol = rime.run { !getRuntimeOption("_hide_key_symbol") }
         val showHint = rime.run { !getRuntimeOption("_hide_key_hint") }
 
-        if (isTop && !showSymbol) return
-        if (!isTop && !showHint) return
+        if (isHint && !showHint) return
+        if (!isHint && !showSymbol) return
 
         val textColor = key.getSymbolColor()
         val textSize = sp(key.symbolTextSize.takeIf { it > 0f } ?: keyboardView.symbolTextSize)
-        val offsetX = if (isTop) key.keySymbolOffsetX else key.keyHintOffsetX
-        val offsetY = if (isTop) key.keySymbolOffsetY else key.keyHintOffsetY
+        val offsetX = if (isHint) key.keyHintOffsetX else key.keySymbolOffsetX
+        val offsetY = if (isHint) key.keyHintOffsetY else key.keySymbolOffsetY
 
         if (text.isIconFont) {
-            drawIcon(canvas, text, textSize.toInt(), textColor, offsetX, offsetY, isTop)
+            drawIcon(canvas, text, textSize.toInt(), textColor, offsetX, offsetY, position)
         } else {
             symbolPaint.apply {
                 color = textColor
                 this.textSize = textSize
                 typeface = FontManager.getTypeface("symbol_font")
+                textAlign = when (position) {
+                    SymbolPosition.LEFT -> Paint.Align.LEFT
+                    SymbolPosition.RIGHT -> Paint.Align.RIGHT
+                    else -> Paint.Align.CENTER
+                }
             }
 
             val lines = text.split("\n")
@@ -406,11 +437,20 @@ class KeyView(
             val lineHeight = fontMetrics.descent - fontMetrics.ascent
             val totalHeight = lineHeight * lines.size
 
-            val centerX = (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
-            val startY = if (isTop) {
-                paddingTop - fontMetrics.top + sp(offsetY) - (totalHeight - lineHeight) / 2
-            } else {
-                height - paddingBottom - fontMetrics.bottom + sp(offsetY) - (totalHeight - lineHeight) / 2
+            val centerX = when (position) {
+                SymbolPosition.LEFT -> paddingLeft + sp(offsetX)
+                SymbolPosition.RIGHT -> width - paddingRight + sp(offsetX)
+                else -> (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+            }
+            val startY = when (position) {
+                SymbolPosition.TOP ->
+                    paddingTop - fontMetrics.top + sp(offsetY) - (totalHeight - lineHeight) / 2
+                SymbolPosition.BOTTOM ->
+                    height - paddingBottom - fontMetrics.bottom + sp(offsetY) - (totalHeight - lineHeight) / 2
+                else -> {
+                    val centerY = (height - paddingTop - paddingBottom) / 2f + paddingTop + sp(offsetY)
+                    centerY - (fontMetrics.top + (lines.size - 1) * lineHeight + fontMetrics.bottom) / 2f
+                }
             }
 
             for (i in lines.indices) {
